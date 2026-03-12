@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>三维最小二乘定位 · 自由增减信标（修复版）</title>
+    <title>三维最小二乘定位 · 小人版</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Microsoft YaHei', sans-serif; }
         #info {
@@ -67,16 +67,15 @@
         }
         .warning { color: #ffaa00; margin-top: 8px; font-size: 0.9rem; }
     </style>
-    <!-- 使用传统 script 标签引入 three.js 和 math.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.7.0/math.min.js"></script>
 </head>
 <body>
     <div id="info">
-        <h1>📡 三维最小二乘定位 · 自由增减信标</h1>
+        <h1>📡 三维最小二乘定位 · 小人版</h1>
         <p>估计坐标: <span id="estX">0.000</span> , <span id="estY">0.000</span> , <span id="estZ">0.000</span></p>
-        <p id="message" style="color: #aaf;">⚡ 调整参数，绿色球体实时更新</p>
+        <p id="message" style="color: #aaf;">⚡ 调整参数，小人实时移动</p>
     </div>
 
     <div id="controls">
@@ -86,7 +85,7 @@
             <button id="addBtn">➕ 添加信标</button>
             <button id="removeBtn" class="remove">➖ 移除最后一个信标</button>
             <div class="estimation">
-                🟢 估计: (<span id="estX2">0.000</span>, <span id="estY2">0.000</span>, <span id="estZ2">0.000</span>)
+                🟢 小人: (<span id="estX2">0.000</span>, <span id="estY2">0.000</span>, <span id="estZ2">0.000</span>)
             </div>
         </div>
         <div class="warning" id="warningMsg">* 以最后一个信标为参考，避免信标共面。</div>
@@ -155,11 +154,77 @@
 
             let beaconMeshes = [];
 
-            const estSphere = new THREE.Mesh(
-                new THREE.SphereGeometry(0.7, 32, 32),
-                new THREE.MeshStandardMaterial({ color: 0x44ff44, emissive: 0x224422 })
-            );
-            scene.add(estSphere);
+            // --- 创建小人模型（由基本几何体组合而成）---
+            function createLittleMan() {
+                const group = new THREE.Group();
+
+                // 身体 (绿色圆柱)
+                const bodyGeo = new THREE.CylinderGeometry(0.5, 0.5, 1.2, 8);
+                const bodyMat = new THREE.MeshStandardMaterial({ color: 0x44aa44 });
+                const body = new THREE.Mesh(bodyGeo, bodyMat);
+                body.position.y = 0.6; // 身体中心在 y=0.6，底部在 y=0
+                group.add(body);
+
+                // 头部 (肤色球体)
+                const headGeo = new THREE.SphereGeometry(0.4, 16, 16);
+                const headMat = new THREE.MeshStandardMaterial({ color: 0xffccaa });
+                const head = new THREE.Mesh(headGeo, headMat);
+                head.position.y = 1.4; // 头部中心 y=1.4
+                group.add(head);
+
+                // 眼睛 (两个小黑点)
+                const eyeGeo = new THREE.SphereGeometry(0.08, 8, 8);
+                const eyeMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
+                
+                const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+                eyeL.position.set(-0.15, 1.5, 0.35);
+                group.add(eyeL);
+                
+                const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
+                eyeR.position.set(0.15, 1.5, 0.35);
+                group.add(eyeR);
+
+                // 帽子 (红色圆锥)
+                const hatGeo = new THREE.ConeGeometry(0.35, 0.5, 8);
+                const hatMat = new THREE.MeshStandardMaterial({ color: 0xff5555 });
+                const hat = new THREE.Mesh(hatGeo, hatMat);
+                hat.position.y = 1.8;
+                hat.rotation.x = 0; // 默认朝上
+                group.add(hat);
+
+                // 手臂 (两个圆柱)
+                const armGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.8);
+                const armMat = new THREE.MeshStandardMaterial({ color: 0x44aa44 });
+
+                const armLeft = new THREE.Mesh(armGeo, armMat);
+                armLeft.position.set(-0.6, 1.1, 0);
+                armLeft.rotation.z = 0.3;
+                armLeft.rotation.x = 0.2;
+                group.add(armLeft);
+
+                const armRight = new THREE.Mesh(armGeo, armMat);
+                armRight.position.set(0.6, 1.1, 0);
+                armRight.rotation.z = -0.3;
+                armRight.rotation.x = -0.2;
+                group.add(armRight);
+
+                // 腿 (两个圆柱)
+                const legGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.8);
+                const legMat = new THREE.MeshStandardMaterial({ color: 0x44aa44 });
+
+                const legLeft = new THREE.Mesh(legGeo, legMat);
+                legLeft.position.set(-0.3, 0.4, 0);
+                group.add(legLeft);
+
+                const legRight = new THREE.Mesh(legGeo, legMat);
+                legRight.position.set(0.3, 0.4, 0);
+                group.add(legRight);
+
+                return group;
+            }
+
+            const littleMan = createLittleMan();
+            scene.add(littleMan);
 
             // --- 工具函数：更新3D信标球体 ---
             function updateBeaconMeshes() {
@@ -208,10 +273,10 @@
                 });
             }
 
-            // --- 最小二乘计算（修复版：去掉条件数检查，直接求解，捕获异常）---
+            // --- 最小二乘计算（允许3个信标）---
             function computeLeastSquares() {
                 const n = beacons.length;
-                if (n < 4) return { success: false, message: '至少需要4个信标' };
+                if (n < 3) return { success: false, message: '至少需要3个信标' };
 
                 const refIdx = n - 1;
                 const ref = beacons[refIdx];
@@ -237,7 +302,6 @@
                     const AtA = math.multiply(At, A_mat);
                     const Atb = math.multiply(At, b_vec);
 
-                    // 直接求解，如果矩阵奇异，lusolve 会抛出错误
                     const X = math.lusolve(AtA, Atb);
                     const x = X.get([0,0]);
                     const y = X.get([1,0]);
@@ -245,8 +309,7 @@
 
                     return { success: true, coords: [x, y, z] };
                 } catch (e) {
-                    // 如果矩阵奇异或数值问题，返回错误
-                    return { success: false, message: '矩阵奇异，请调整信标位置避免共面' };
+                    return { success: false, message: '矩阵奇异，请调整信标位置避免共面或增加信标' };
                 }
             }
 
@@ -274,7 +337,9 @@
 
                 if (result.success) {
                     const [x, y, z] = result.coords;
-                    estSphere.position.set(x, y, z);
+                    // 移动小人到估计位置
+                    littleMan.position.set(x, y, z);
+                    
                     estX.textContent = x.toFixed(3);
                     estY.textContent = y.toFixed(3);
                     estZ.textContent = z.toFixed(3);
@@ -283,7 +348,7 @@
                     estZ2.textContent = z.toFixed(3);
                     message.innerHTML = '✅ 解算成功';
                     message.style.color = '#aaffaa';
-                    warning.innerHTML = '* 当前估计位置如绿色球体所示';
+                    warning.innerHTML = '* 当前估计位置如小人所处位置';
                 } else {
                     message.innerHTML = '⚠️ ' + result.message;
                     message.style.color = '#ff6b6b';
@@ -322,8 +387,8 @@
             }
 
             function removeBeacon() {
-                if (beacons.length <= 4) {
-                    alert('至少需要保留4个信标');
+                if (beacons.length <= 3) {
+                    alert('至少需要保留3个信标');
                     return;
                 }
                 beacons.pop();
